@@ -45,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="smartsupp-chat" strategy="afterInteractive">
           {`
             var _smartsupp = _smartsupp || {};
-            _smartsupp.key = 'ff14809e5fee7f8eb4ecc56fc36eba761c7797d2';
+            _smartsupp.key = 'da533e9ee107e991b2432d09b50cbf3f6cf7bea2';
             window.smartsupp||(function(d) {
               var s,c,o=smartsupp=function(){ o._.push(arguments)};o._=[];
               s=d.getElementsByTagName('script')[0];c=d.createElement('script');
