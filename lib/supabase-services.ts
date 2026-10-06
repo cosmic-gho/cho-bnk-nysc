@@ -1284,4 +1284,670 @@ export const kycService = {
   },
 }
 
+// Investment Types
+export interface InvestmentPlan {
+  id: number
+  name: string
+  description: string
+  category: 'fixed_deposit' | 'crypto_staking' | 'mutual_fund' | 'real_estate' | 'bonds'
+  min_amount: number
+  max_amount: number
+  interest_rate: number
+  duration_days: number
+  risk_level: 'low' | 'moderate' | 'high'
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface UserInvestment {
+  id: number
+  user_id: string
+  account_id: number
+  plan_id: number
+  amount: number
+  expected_return: number
+  total_payout: number
+  status: 'active' | 'matured' | 'claimed' | 'cancelled'
+  start_date: string
+  end_date: string
+  claimed_at?: string | null
+  created_at?: string
+  plan?: InvestmentPlan
+  account?: {
+    id: number
+    account_number: string
+    balance: string
+    account_type?: { name: string }
+  }
+}
+
+export interface AssetHolding {
+  id: number
+  user_id: string
+  account_id: number
+  asset_symbol: string
+  asset_name: string
+  asset_type: 'stock' | 'crypto'
+  quantity: number
+  average_buy_price: number
+  total_invested: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface AssetOrder {
+  id: number
+  user_id: string
+  account_id: number
+  asset_symbol: string
+  asset_name: string
+  asset_type: 'stock' | 'crypto'
+  order_type: 'buy' | 'sell'
+  quantity: number
+  price_per_unit: number
+  total_amount: number
+  status: string
+  created_at: string
+}
+
+export const DEFAULT_INVESTMENT_PLANS: InvestmentPlan[] = [
+  {
+    id: 1,
+    name: "Starter Savings Certificate",
+    description: "Low-risk insured term deposit designed for consistent short-term capital preservation.",
+    category: "fixed_deposit",
+    min_amount: 100,
+    max_amount: 25000,
+    interest_rate: 5.2,
+    duration_days: 30,
+    risk_level: "low",
+    is_active: true
+  },
+  {
+    id: 2,
+    name: "High-Yield Treasury Vault",
+    description: "Backed by sovereign treasury bonds offering stable, predictable returns over 90 days.",
+    category: "bonds",
+    min_amount: 500,
+    max_amount: 100000,
+    interest_rate: 8.4,
+    duration_days: 90,
+    risk_level: "low",
+    is_active: true
+  },
+  {
+    id: 3,
+    name: "Real Estate Alpha Income",
+    description: "Secured commercial and residential development financing with high seasonal dividend yields.",
+    category: "real_estate",
+    min_amount: 1000,
+    max_amount: 250000,
+    interest_rate: 12.8,
+    duration_days: 180,
+    risk_level: "moderate",
+    is_active: true
+  },
+  {
+    id: 4,
+    name: "Blue-Chip Crypto Staking",
+    description: "Institutional validator node staking pool for Tier 1 networks (ETH/SOL) with compounded yield.",
+    category: "crypto_staking",
+    min_amount: 250,
+    max_amount: 50000,
+    interest_rate: 16.5,
+    duration_days: 90,
+    risk_level: "moderate",
+    is_active: true
+  },
+  {
+    id: 5,
+    name: "Global Tech Disruptors Fund",
+    description: "Curated index fund tracking high-growth cloud computing, AI, and green energy market leaders.",
+    category: "mutual_fund",
+    min_amount: 1500,
+    max_amount: 300000,
+    interest_rate: 18.2,
+    duration_days: 180,
+    risk_level: "high",
+    is_active: true
+  },
+  {
+    id: 6,
+    name: "Quantitative Growth Alpha",
+    description: "Algorithmic multi-asset strategy capitalizing on automated arbitrage and trend execution.",
+    category: "mutual_fund",
+    min_amount: 2000,
+    max_amount: 500000,
+    interest_rate: 24.0,
+    duration_days: 365,
+    risk_level: "high",
+    is_active: true
+  }
+]
+
+export const investmentService = {
+  getPlans: async (): Promise<InvestmentPlan[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('investment_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('id', { ascending: true })
+
+      if (error || !data || data.length === 0) {
+        return DEFAULT_INVESTMENT_PLANS
+      }
+      return data
+    } catch {
+      return DEFAULT_INVESTMENT_PLANS
+    }
+  },
+
+  getUserInvestments: async (): Promise<UserInvestment[]> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    try {
+      const { data, error } = await supabase
+        .from('user_investments')
+        .select(`
+          *,
+          plan:investment_plans(*),
+          account:accounts(id, account_number, balance, account_type:account_types(name))
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.warn('Could not query user_investments table:', error)
+        return []
+      }
+
+      // Check for investments that reached their end_date and mark them matured
+      const now = new Date()
+      const updatedInvestments = (data || []).map((inv: any) => {
+        if (inv.status === 'active' && new Date(inv.end_date) <= now) {
+          // Asynchronously update status to matured
+          supabase
+            .from('user_investments')
+            .update({ status: 'matured' })
+            .eq('id', inv.id)
+            .then()
+          return { ...inv, status: 'matured' as const }
+        }
+        return inv
+      })
+
+      return updatedInvestments
+    } catch (err) {
+      console.warn('Error fetching user investments:', err)
+      return []
+    }
+  },
+
+  createInvestment: async (accountId: number, planId: number, amount: number) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    // 1. Get and verify account
+    const account = await accountService.getAccount(accountId)
+    const currentBalance = parseFloat(account.balance)
+    if (currentBalance < amount) {
+      throw new Error(`Insufficient funds. Your balance is $${currentBalance.toFixed(2)}.`)
+    }
+
+    // 2. Get plan
+    let plan: InvestmentPlan | undefined
+    try {
+      const { data } = await supabase
+        .from('investment_plans')
+        .select('*')
+        .eq('id', planId)
+        .single()
+      if (data) plan = data
+    } catch {
+      // fallback to default
+    }
+    if (!plan) {
+      plan = DEFAULT_INVESTMENT_PLANS.find(p => p.id === planId)
+    }
+    if (!plan) throw new Error('Investment plan not found')
+
+    if (amount < plan.min_amount) {
+      throw new Error(`Minimum investment for this plan is $${plan.min_amount.toLocaleString()}`)
+    }
+    if (amount > plan.max_amount) {
+      throw new Error(`Maximum investment for this plan is $${plan.max_amount.toLocaleString()}`)
+    }
+
+    // 3. Calculate yields
+    const expectedReturn = Number(((amount * (plan.interest_rate / 100) * (plan.duration_days / 365))).toFixed(2))
+    const totalPayout = Number((amount + expectedReturn).toFixed(2))
+    const startDate = new Date()
+    const endDate = new Date(startDate.getTime() + plan.duration_days * 24 * 60 * 60 * 1000)
+
+    // 4. Deduct amount from account
+    const newBalance = currentBalance - amount
+    const { error: balanceError } = await supabase
+      .from('accounts')
+      .update({ balance: newBalance })
+      .eq('id', accountId)
+
+    if (balanceError) throw balanceError
+
+    // 5. Create transaction record
+    await supabase
+      .from('transactions')
+      .insert({
+        account_id: accountId,
+        transaction_type: 'payment',
+        amount,
+        description: `Investment subscribed: ${plan.name} (${plan.interest_rate}% APY)`,
+        status: 'approved',
+      })
+
+    // 6. Insert user investment
+    const { data: investment, error: invError } = await supabase
+      .from('user_investments')
+      .insert({
+        user_id: user.id,
+        account_id: accountId,
+        plan_id: plan.id,
+        amount,
+        expected_return: expectedReturn,
+        total_payout: totalPayout,
+        status: 'active',
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+      })
+      .select(`
+        *,
+        plan:investment_plans(*),
+        account:accounts(id, account_number, balance)
+      `)
+      .single()
+
+    if (invError) {
+      console.warn('Could not insert to user_investments:', invError)
+    }
+
+    // 7. Send notification
+    try {
+      await notificationService.createNotification(
+        user.id,
+        'Investment Activated',
+        `Successfully invested $${amount.toFixed(2)} in ${plan.name}. Estimated return: $${expectedReturn.toFixed(2)}.`
+      )
+    } catch (e) {
+      console.warn('Could not send notification:', e)
+    }
+
+    return investment || {
+      id: Date.now(),
+      user_id: user.id,
+      account_id: accountId,
+      plan_id: plan.id,
+      amount,
+      expected_return: expectedReturn,
+      total_payout: totalPayout,
+      status: 'active',
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      plan,
+    }
+  },
+
+  claimMaturedInvestment: async (investmentId: number) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: investment, error } = await supabase
+      .from('user_investments')
+      .select('*, account:accounts(id, balance)')
+      .eq('id', investmentId)
+      .single()
+
+    if (error || !investment) throw new Error('Investment not found')
+    if (investment.user_id !== user.id) throw new Error('Unauthorized')
+    if (investment.status === 'claimed') throw new Error('Investment already claimed')
+
+    const now = new Date()
+    if (investment.status !== 'matured' && new Date(investment.end_date) > now) {
+      throw new Error('This investment has not reached its maturity date yet.')
+    }
+
+    // Credit account with total_payout
+    const currentBalance = parseFloat(investment.account.balance)
+    const newBalance = currentBalance + Number(investment.total_payout)
+
+    const { error: balanceError } = await supabase
+      .from('accounts')
+      .update({ balance: newBalance })
+      .eq('id', investment.account_id)
+
+    if (balanceError) throw balanceError
+
+    // Record transaction
+    await supabase
+      .from('transactions')
+      .insert({
+        account_id: investment.account_id,
+        transaction_type: 'deposit',
+        amount: investment.total_payout,
+        description: `Investment payout claimed for investment #${investment.id}`,
+        status: 'approved',
+      })
+
+    // Mark as claimed
+    const { data: updated, error: updateError } = await supabase
+      .from('user_investments')
+      .update({
+        status: 'claimed',
+        claimed_at: new Date().toISOString(),
+      })
+      .eq('id', investmentId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    // Send notification
+    try {
+      await notificationService.createNotification(
+        user.id,
+        'Investment Payout Claimed',
+        `Your investment payout of $${Number(investment.total_payout).toFixed(2)} has been credited to your account.`
+      )
+    } catch (e) {
+      console.warn('Could not send notification:', e)
+    }
+
+    return updated
+  },
+
+  cancelInvestment: async (investmentId: number) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: investment, error } = await supabase
+      .from('user_investments')
+      .select('*, account:accounts(id, balance)')
+      .eq('id', investmentId)
+      .single()
+
+    if (error || !investment) throw new Error('Investment not found')
+    if (investment.user_id !== user.id) throw new Error('Unauthorized')
+    if (investment.status !== 'active') throw new Error('Only active investments can be cancelled')
+
+    // Liquidate early: 2% early withdrawal fee on principal
+    const refund = Number((investment.amount * 0.98).toFixed(2))
+    const currentBalance = parseFloat(investment.account.balance)
+    const newBalance = currentBalance + refund
+
+    await supabase
+      .from('accounts')
+      .update({ balance: newBalance })
+      .eq('id', investment.account_id)
+
+    await supabase
+      .from('transactions')
+      .insert({
+        account_id: investment.account_id,
+        transaction_type: 'deposit',
+        amount: refund,
+        description: `Early investment liquidation refund (2% fee applied) for #${investment.id}`,
+        status: 'approved',
+      })
+
+    const { data: updated, error: updateError } = await supabase
+      .from('user_investments')
+      .update({ status: 'cancelled' })
+      .eq('id', investmentId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+    return updated
+  },
+
+  // Asset / Portfolio Services (Stocks & Crypto)
+  getAssetHoldings: async (): Promise<AssetHolding[]> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    try {
+      const { data, error } = await supabase
+        .from('asset_holdings')
+        .select('*')
+        .eq('user_id', user.id)
+        .gt('quantity', 0)
+        .order('total_invested', { ascending: false })
+
+      if (error) {
+        console.warn('Could not query asset_holdings:', error)
+        return []
+      }
+      return data || []
+    } catch {
+      return []
+    }
+  },
+
+  getAssetOrders: async (): Promise<AssetOrder[]> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    try {
+      const { data, error } = await supabase
+        .from('asset_orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(30)
+
+      if (error) return []
+      return data || []
+    } catch {
+      return []
+    }
+  },
+
+  buyAsset: async (params: {
+    accountId: number
+    symbol: string
+    name: string
+    type: 'stock' | 'crypto'
+    quantity: number
+    pricePerUnit: number
+  }) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const totalCost = Number((params.quantity * params.pricePerUnit).toFixed(2))
+    const account = await accountService.getAccount(params.accountId)
+    const currentBalance = parseFloat(account.balance)
+
+    if (currentBalance < totalCost) {
+      throw new Error(`Insufficient funds. Total cost is $${totalCost.toFixed(2)}, available balance: $${currentBalance.toFixed(2)}.`)
+    }
+
+    // Deduct balance
+    const newBalance = currentBalance - totalCost
+    await supabase
+      .from('accounts')
+      .update({ balance: newBalance })
+      .eq('id', params.accountId)
+
+    // Record transaction
+    await supabase
+      .from('transactions')
+      .insert({
+        account_id: params.accountId,
+        transaction_type: 'payment',
+        amount: totalCost,
+        description: `Bought ${params.quantity} ${params.symbol} (${params.name}) @ $${params.pricePerUnit.toFixed(2)}`,
+        status: 'approved',
+      })
+
+    // Upsert asset holding
+    const { data: existing } = await supabase
+      .from('asset_holdings')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('asset_symbol', params.symbol)
+      .maybeSingle()
+
+    if (existing) {
+      const newQty = Number((Number(existing.quantity) + params.quantity).toFixed(8))
+      const newTotalInvested = Number((Number(existing.total_invested) + totalCost).toFixed(2))
+      const newAvgPrice = Number((newTotalInvested / newQty).toFixed(2))
+
+      await supabase
+        .from('asset_holdings')
+        .update({
+          quantity: newQty,
+          total_invested: newTotalInvested,
+          average_buy_price: newAvgPrice,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+    } else {
+      await supabase
+        .from('asset_holdings')
+        .insert({
+          user_id: user.id,
+          account_id: params.accountId,
+          asset_symbol: params.symbol,
+          asset_name: params.name,
+          asset_type: params.type,
+          quantity: params.quantity,
+          average_buy_price: params.pricePerUnit,
+          total_invested: totalCost,
+        })
+    }
+
+    // Log order
+    await supabase
+      .from('asset_orders')
+      .insert({
+        user_id: user.id,
+        account_id: params.accountId,
+        asset_symbol: params.symbol,
+        asset_name: params.name,
+        asset_type: params.type,
+        order_type: 'buy',
+        quantity: params.quantity,
+        price_per_unit: params.pricePerUnit,
+        total_amount: totalCost,
+        status: 'completed',
+      })
+
+    // Notification
+    try {
+      await notificationService.createNotification(
+        user.id,
+        'Asset Purchase Successful',
+        `You purchased ${params.quantity} ${params.symbol} for $${totalCost.toFixed(2)}.`
+      )
+    } catch (e) {
+      console.warn('Could not send notification:', e)
+    }
+
+    return { success: true, totalCost }
+  },
+
+  sellAsset: async (params: {
+    accountId: number
+    symbol: string
+    quantity: number
+    pricePerUnit: number
+  }) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: holding, error } = await supabase
+      .from('asset_holdings')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('asset_symbol', params.symbol)
+      .single()
+
+    if (error || !holding) throw new Error(`You do not own any ${params.symbol}`)
+    if (Number(holding.quantity) < params.quantity) {
+      throw new Error(`Insufficient holdings. You have ${holding.quantity} ${params.symbol}, cannot sell ${params.quantity}.`)
+    }
+
+    const totalProceeds = Number((params.quantity * params.pricePerUnit).toFixed(2))
+    const account = await accountService.getAccount(params.accountId)
+    const newBalance = parseFloat(account.balance) + totalProceeds
+
+    // Credit account
+    await supabase
+      .from('accounts')
+      .update({ balance: newBalance })
+      .eq('id', params.accountId)
+
+    // Transaction
+    await supabase
+      .from('transactions')
+      .insert({
+        account_id: params.accountId,
+        transaction_type: 'deposit',
+        amount: totalProceeds,
+        description: `Sold ${params.quantity} ${params.symbol} @ $${params.pricePerUnit.toFixed(2)}`,
+        status: 'approved',
+      })
+
+    // Update holdings
+    const remainingQty = Number((Number(holding.quantity) - params.quantity).toFixed(8))
+    if (remainingQty <= 0) {
+      await supabase
+        .from('asset_holdings')
+        .delete()
+        .eq('id', holding.id)
+    } else {
+      const remainingInvested = Number((Number(holding.total_invested) - (holding.average_buy_price * params.quantity)).toFixed(2))
+      await supabase
+        .from('asset_holdings')
+        .update({
+          quantity: remainingQty,
+          total_invested: Math.max(0, remainingInvested),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', holding.id)
+    }
+
+    // Log order
+    await supabase
+      .from('asset_orders')
+      .insert({
+        user_id: user.id,
+        account_id: params.accountId,
+        asset_symbol: params.symbol,
+        asset_name: holding.asset_name,
+        asset_type: holding.asset_type,
+        order_type: 'sell',
+        quantity: params.quantity,
+        price_per_unit: params.pricePerUnit,
+        total_amount: totalProceeds,
+        status: 'completed',
+      })
+
+    // Notification
+    try {
+      await notificationService.createNotification(
+        user.id,
+        'Asset Sale Completed',
+        `You sold ${params.quantity} ${params.symbol} for $${totalProceeds.toFixed(2)}. Funds credited to your account.`
+      )
+    } catch (e) {
+      console.warn('Could not send notification:', e)
+    }
+
+    return { success: true, totalProceeds }
+  },
+}
+
+
 

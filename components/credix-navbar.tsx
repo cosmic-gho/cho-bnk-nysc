@@ -33,6 +33,7 @@ export function CredixNavbar() {
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Personal" },
+    { href: "/investments", label: "Investments" },
     { href: "/about", label: "Corporate" },
     { href: "/contact", label: "Insurance" },
     { href: "/grants", label: "Mortgages" },
@@ -101,6 +102,13 @@ export function CredixNavbar() {
                 </button>
                 <div className="absolute top-full left-0 mt-1 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="p-2">
+                    <Link
+                      href="/investments"
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors font-medium"
+                    >
+                      <i className="fa-solid fa-chart-line text-emerald-500 w-4"></i>
+                      Investments & Plans
+                    </Link>
                     <Link
                       href="/chart"
                       className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"

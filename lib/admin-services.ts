@@ -1256,3 +1256,294 @@ export const adminCardRequestService = {
     return updatedRequest
   },
 }
+
+// Admin Investment Services
+export const adminInvestmentService = {
+  getAllUserInvestments: async (filters?: { status?: string }) => {
+    await requireAdmin()
+    let query = supabase
+      .from('user_investments')
+      .select(`
+        *,
+        plan:investment_plans(*),
+        account:accounts(id, account_number, balance, user_id)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (filters?.status) {
+      query = query.eq('status', filters.status)
+    }
+
+    const { data, error } = await query
+    if (error) {
+      console.warn('Could not load user_investments:', error)
+      return []
+    }
+
+    if (data && data.length > 0) {
+      const userIds = [...new Set(data.map((r: any) => r.user_id).filter(Boolean))]
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('id, username, first_name, last_name, email')
+          .in('id', userIds)
+
+        if (profiles) {
+          const profilesMap = new Map(profiles.map((p: any) => [p.id, p]))
+          return data.map((r: any) => ({
+            ...r,
+            user: profilesMap.get(r.user_id) || null,
+          }))
+        }
+      }
+    }
+    return data || []
+  },
+
+  getAllPlans: async () => {
+    await requireAdmin()
+    const { data, error } = await supabase
+      .from('investment_plans')
+      .select('*')
+      .order('id', { ascending: true })
+
+    if (error || !data || data.length === 0) {
+      const { DEFAULT_INVESTMENT_PLANS } = await import('./supabase-services')
+      return DEFAULT_INVESTMENT_PLANS
+    }
+    return data
+  },
+
+  createPlan: async (planData: {
+    name: string
+    description: string
+    category: string
+    min_amount: number
+    max_amount: number
+    interest_rate: number
+    duration_days: number
+    risk_level: string
+    is_active?: boolean
+  }) => {
+    await requireAdmin()
+    const { data, error } = await supabase
+      .from('investment_plans')
+      .insert({
+        ...planData,
+        is_active: planData.is_active ?? true,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  updatePlan: async (planId: number, planData: any) => {
+    await requireAdmin()
+    const { data, error } = await supabase
+      .from('investment_plans')
+      .update({
+        ...planData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', planId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  deletePlan: async (planId: number) => {
+    await requireAdmin()
+    const { error } = await supabase
+      .from('investment_plans')
+      .delete()
+      .eq('id', planId)
+
+    if (error) throw error
+    return true
+  },
+
+  forceMatureInvestment: async (investmentId: number) => {
+    await requireAdmin()
+    const { data: investment, error } = await supabase
+      .from('user_investments')
+      .select('*, account:accounts(id, balance)')
+      .eq('id', investmentId)
+      .single()
+
+    if (error || !investment) throw new Error('Investment not found')
+
+    const { data: updated, error: updateError } = await supabase
+      .from('user_investments')
+      .update({
+        status: 'matured',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', investmentId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    try {
+      const { notificationService } = await import('./supabase-services')
+      await notificationService.createNotification(
+        investment.user_id,
+        'Investment Matured',
+        `Your investment #${investment.id} of $${investment.amount} has matured and is ready to claim!`
+      )
+    } catch (e) {
+      console.warn('Could not send notification:', e)
+    }
+
+    return updated
+  },
+
+  settleAndPayoutInvestment: async (investmentId: number) => {
+    await requireAdmin()
+    const { data: investment, error } = await supabase
+      .from('user_investments')
+      .select('*, account:accounts(id, balance)')
+      .eq('id', investmentId)
+      .single()
+
+    if (error || !investment) throw new Error('Investment not found')
+    if (investment.status === 'claimed') throw new Error('Investment already paid out')
+
+    const currentBalance = parseFloat(investment.account.balance)
+    const newBalance = currentBalance + Number(investment.total_payout)
+
+    await supabase
+      .from('accounts')
+      .update({ balance: newBalance })
+      .eq('id', investment.account_id)
+
+    await supabase
+      .from('transactions')
+      .insert({
+        account_id: investment.account_id,
+        transaction_type: 'deposit',
+        amount: investment.total_payout,
+        description: `Admin settled investment payout #${investment.id}`,
+        status: 'approved',
+      })
+
+    const { data: updated, error: updateError } = await supabase
+      .from('user_investments')
+      .update({
+        status: 'claimed',
+        claimed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', investmentId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    try {
+      const { notificationService } = await import('./supabase-services')
+      await notificationService.createNotification(
+        investment.user_id,
+        'Investment Payout Succeeded',
+        `Your investment #${investment.id} payout of $${Number(investment.total_payout).toFixed(2)} has been credited by administration.`
+      )
+    } catch (e) {
+      console.warn('Could not send notification:', e)
+    }
+
+    return updated
+  },
+
+  getAllAssetOrders: async () => {
+    await requireAdmin()
+    const { data, error } = await supabase
+      .from('asset_orders')
+      .select(`
+        *,
+        account:accounts(id, account_number, user_id)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error) return []
+
+    if (data && data.length > 0) {
+      const userIds = [...new Set(data.map((r: any) => r.user_id).filter(Boolean))]
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('id, username, first_name, last_name')
+          .in('id', userIds)
+
+        if (profiles) {
+          const profilesMap = new Map(profiles.map((p: any) => [p.id, p]))
+          return data.map((r: any) => ({
+            ...r,
+            user: profilesMap.get(r.user_id) || null,
+          }))
+        }
+      }
+    }
+    return data || []
+  },
+
+  getInvestmentStats: async () => {
+    await requireAdmin()
+    try {
+      const { data: investments } = await supabase
+        .from('user_investments')
+        .select('amount, expected_return, status')
+
+      const { data: plans } = await supabase
+        .from('investment_plans')
+        .select('id, is_active')
+
+      const { data: orders } = await supabase
+        .from('asset_orders')
+        .select('total_amount, order_type')
+
+      let totalInvested = 0
+      let totalReturns = 0
+      let activeCount = 0
+
+      if (investments) {
+        investments.forEach((inv: any) => {
+          if (inv.status === 'active') {
+            totalInvested += Number(inv.amount || 0)
+            activeCount++
+          } else if (inv.status === 'claimed' || inv.status === 'matured') {
+            totalReturns += Number(inv.expected_return || 0)
+          }
+        })
+      }
+
+      let totalTradingVolume = 0
+      if (orders) {
+        orders.forEach((ord: any) => {
+          totalTradingVolume += Number(ord.total_amount || 0)
+        })
+      }
+
+      return {
+        totalCapitalInvested: totalInvested,
+        totalReturnsPaid: totalReturns,
+        activeInvestments: activeCount,
+        totalPlans: plans?.length || 6,
+        totalTradingVolume,
+      }
+    } catch {
+      return {
+        totalCapitalInvested: 0,
+        totalReturnsPaid: 0,
+        activeInvestments: 0,
+        totalPlans: 6,
+        totalTradingVolume: 0,
+      }
+    }
+  },
+}
+

@@ -22,6 +22,8 @@ import {
   FileText,
   Building,
   Wallet,
+  LineChart,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -407,6 +409,30 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Investment Promo Banner */}
+          <Card className="mb-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white border-0 overflow-hidden relative shadow-md">
+            <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 transform skew-x-12 pointer-events-none" />
+            <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-lg text-white">Grow Your Wealth with up to 24% APY</h3>
+                  <p className="text-emerald-100 text-xs sm:text-sm">
+                    Subscribe to secured term deposit plans or trade stock & crypto assets directly from your account.
+                  </p>
+                </div>
+              </div>
+              <Button
+                className="bg-white text-emerald-700 hover:bg-emerald-50 font-bold text-xs sm:text-sm shadow-sm shrink-0"
+                onClick={() => router.push("/investments")}
+              >
+                <LineChart className="mr-2 h-4 w-4" /> Start Investing
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Quick Actions & Recent Transactions */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Quick Actions */}
@@ -427,18 +453,35 @@ export default function Dashboard() {
                     </Button>
                     <Button
                       variant="outline"
+                      className="h-24 flex flex-col items-center justify-center text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20"
+                      onClick={() => router.push("/investments")}
+                    >
+                      <LineChart className="h-6 w-6 mb-2" />
+                      Investments
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-24 flex flex-col items-center justify-center"
+                      onClick={() => router.push("/deposit")}
+                    >
+                      <Wallet className="h-6 w-6 mb-2" />
+                      Deposit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-24 flex flex-col items-center justify-center"
+                      onClick={() => router.push("/cards")}
+                    >
+                      <CreditCard className="h-6 w-6 mb-2" />
+                      Cards
+                    </Button>
+                    <Button
+                      variant="outline"
                       className="h-24 flex flex-col items-center justify-center"
                       onClick={() => router.push("/transfers")}
                     >
                       <FileText className="h-6 w-6 mb-2" />
                       Pay Bills
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-24 flex flex-col items-center justify-center"
-                    >
-                      <ArrowDownLeft className="h-6 w-6 mb-2" />
-                      Request
                     </Button>
                     <Button
                       variant="outline"

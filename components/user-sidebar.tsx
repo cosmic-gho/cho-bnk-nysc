@@ -20,6 +20,7 @@ import {
   Lock,
   Clock,
   Wallet,
+  LineChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -109,6 +110,7 @@ export function UserSidebar() {
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/transaction-history", label: "Transactions", icon: TrendingUp },
     { href: "/accounts", label: "Accounts", icon: CreditCard },
+    { href: "/investments", label: "Investments", icon: LineChart },
     { href: "/cards", label: "Cards", icon: CreditCard },
     { href: "/kyc", label: "KYC Verification", icon: Lock },
     { href: "/deposit", label: "Deposit", icon: Wallet },

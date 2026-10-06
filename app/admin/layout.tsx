@@ -15,6 +15,7 @@ import {
   LogOut,
   Shield,
   Wallet,
+  TrendingUp,
 } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -96,6 +97,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Button variant="ghost" className="w-full justify-start">
               <Receipt className="mr-2 h-4 w-4" />
               Transactions
+            </Button>
+          </Link>
+          <Link href="/admin/investments">
+            <Button variant="ghost" className="w-full justify-start">
+              <TrendingUp className="mr-2 h-4 w-4" />
+              Investments
             </Button>
           </Link>
           <Link href="/admin/notifications">
