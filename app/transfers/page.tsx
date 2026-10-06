@@ -274,7 +274,7 @@ export default function Transactions() {
                     <SelectContent>
                       {accounts.map((account) => (
                         <SelectItem key={account.id} value={account.id.toString()}>
-                          {account.account_type.name} - ****{account.account_number.slice(-4)} ($
+                          {account.account_type?.name || "Account"} - ****{account.account_number.slice(-4)} ($
                           {parseFloat(account.balance).toFixed(2)})
                         </SelectItem>
                       ))}
@@ -292,7 +292,7 @@ export default function Transactions() {
                         .filter((account) => account.id.toString() !== sourceAccountId)
                         .map((account) => (
                           <SelectItem key={account.id} value={account.id.toString()}>
-                            {account.account_type.name} - ****{account.account_number.slice(-4)} ($
+                            {account.account_type?.name || "Account"} - ****{account.account_number.slice(-4)} ($
                             {parseFloat(account.balance).toFixed(2)})
                           </SelectItem>
                         ))}
@@ -352,7 +352,7 @@ export default function Transactions() {
                     <SelectContent>
                       {accounts.map((account) => (
                         <SelectItem key={account.id} value={account.id.toString()}>
-                          {account.account_type.name} - ****{account.account_number.slice(-4)} ($
+                          {account.account_type?.name || "Account"} - ****{account.account_number.slice(-4)} ($
                           {parseFloat(account.balance).toFixed(2)})
                         </SelectItem>
                       ))}
@@ -412,7 +412,7 @@ export default function Transactions() {
                     <SelectContent>
                       {accounts.map((account) => (
                         <SelectItem key={account.id} value={account.id.toString()}>
-                          {account.account_type.name} - ****{account.account_number.slice(-4)} ($
+                          {account.account_type?.name || "Account"} - ****{account.account_number.slice(-4)} ($
                           {parseFloat(account.balance).toFixed(2)})
                         </SelectItem>
                       ))}

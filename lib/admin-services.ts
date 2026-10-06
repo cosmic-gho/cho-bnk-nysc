@@ -201,6 +201,7 @@ export const adminAccountService = {
     const profilesMap = new Map((profiles || []).map((p: any) => [p.id, p]))
     return accounts.map((acc: any) => ({
       ...acc,
+      account_type: acc.account_type || { id: 0, name: 'Standard', description: '' },
       user: profilesMap.get(acc.user_id) || null
     }))
   },
@@ -231,6 +232,7 @@ export const adminAccountService = {
 
     return {
       ...account,
+      account_type: account.account_type || { id: 0, name: 'Standard', description: '' },
       user: profile || null
     }
   },

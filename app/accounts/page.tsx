@@ -86,7 +86,7 @@ export default function AccountsPage() {
           <Card key={account.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                {account.account_type.name}
+                {account.account_type?.name || "Bank Account"}
               </CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>

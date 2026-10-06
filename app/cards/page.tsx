@@ -252,7 +252,7 @@ export default function CardsPage() {
                     <SelectContent>
                       {accounts.map((account) => (
                         <SelectItem key={account.id} value={account.id.toString()}>
-                          {account.account_type.name} - {account.account_number}
+                          {account.account_type?.name || "Account"} - {account.account_number}
                         </SelectItem>
                       ))}
                     </SelectContent>

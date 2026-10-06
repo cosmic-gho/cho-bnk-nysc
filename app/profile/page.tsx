@@ -159,6 +159,7 @@ export default function Profile() {
             phone_number: null,
             address: null,
             date_of_birth: null,
+            profile_picture: null,
           });
         }
 
@@ -461,7 +462,7 @@ export default function Profile() {
                       {accounts.map((account) => (
                         <TableRow key={account.id}>
                           <TableCell>{account.id}</TableCell>
-                          <TableCell>{account.account_type.name}</TableCell>
+                          <TableCell>{account.account_type?.name || "Account"}</TableCell>
                           <TableCell>****{account.account_number.slice(-4)}</TableCell>
                           <TableCell>${parseFloat(account.balance).toFixed(2)}</TableCell>
                         </TableRow>

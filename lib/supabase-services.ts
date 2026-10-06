@@ -166,7 +166,7 @@ export const accountService = {
 
     return data.map((acc: any) => ({
       id: acc.id,
-      account_type: acc.account_type,
+      account_type: acc.account_type || { id: 0, name: 'Standard', description: '' },
       account_number: acc.account_number,
       balance: acc.balance.toString(),
       transaction_limit: acc.transaction_limit ? parseFloat(acc.transaction_limit.toString()) : undefined,
@@ -190,7 +190,7 @@ export const accountService = {
 
     return {
       id: data.id,
-      account_type: data.account_type,
+      account_type: data.account_type || { id: 0, name: 'Standard', description: '' },
       account_number: data.account_number,
       balance: data.balance.toString(),
       transaction_limit: data.transaction_limit ? parseFloat(data.transaction_limit.toString()) : undefined,
@@ -223,7 +223,7 @@ export const accountService = {
 
   deposit: async (accountId: number, amount: number, description: string, categoryId?: number) => {
     // Start transaction - update balance and create transaction record
-    const { data: account } = await accountService.getAccount(accountId)
+    const account = await accountService.getAccount(accountId)
     const newBalance = parseFloat(account.balance) + amount
 
     const { error: updateError } = await supabase
@@ -261,7 +261,7 @@ export const accountService = {
   },
 
   withdraw: async (accountId: number, amount: number, description: string, categoryId?: number, bankDetails?: any) => {
-    const { data: account } = await accountService.getAccount(accountId)
+    const account = await accountService.getAccount(accountId)
     const currentBalance = parseFloat(account.balance)
 
     if (currentBalance < amount) {
@@ -1051,7 +1051,7 @@ export const cardRequestService = {
     account_id: number
     card_type: 'virtual' | 'physical'
     card_tier?: 'standard' | 'gold' | 'platinum'
-    card_holder_name: string
+    card_holder_name?: string
     daily_limit?: number
   }) => {
     const { data: { user } } = await supabase.auth.getUser()

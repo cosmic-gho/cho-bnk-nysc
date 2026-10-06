@@ -301,7 +301,7 @@ export default function WireTransferPage() {
                 <SelectContent>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id.toString()}>
-                      {account.account_type.name} - {account.account_number} (${parseFloat(account.balance).toFixed(2)})
+                      {account.account_type?.name || "Account"} - {account.account_number} (${parseFloat(account.balance).toFixed(2)})
                     </SelectItem>
                   ))}
                 </SelectContent>

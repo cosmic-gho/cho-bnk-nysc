@@ -42,17 +42,17 @@ interface Account {
   transaction_limit?: number;
   daily_limit?: number;
   created_at: string;
-  account_type: {
+  account_type?: {
     id: number;
     name: string;
     description: string;
-  };
-  user: {
+  } | null;
+  user?: {
     id: string;
     username: string;
     first_name: string;
     last_name: string;
-  };
+  } | null;
 }
 
 interface AccountType {
@@ -454,7 +454,7 @@ export default function AdminAccountsPage() {
               {accounts.map((account) => (
                 <TableRow key={account.id}>
                   <TableCell className="font-mono">{account.account_number}</TableCell>
-                  <TableCell>{account.account_type.name}</TableCell>
+                  <TableCell>{account.account_type?.name || "Standard"}</TableCell>
                   <TableCell>
                     {account.user?.first_name} {account.user?.last_name}
                     {account.user?.username && ` (@${account.user.username})`}

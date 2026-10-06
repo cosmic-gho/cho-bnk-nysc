@@ -226,18 +226,18 @@ export default function AdminDepositRequestsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <div className="font-mono">{request.account.account_number}</div>
+                        <div className="font-mono">{request.account?.account_number || "N/A"}</div>
                         <div className="text-muted-foreground text-xs">
-                          {request.account.account_type.name}
+                          {request.account?.account_type?.name || "Standard"}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {request.crypto_wallet.logo_url && (
+                        {request.crypto_wallet?.logo_url && (
                           <img
                             src={request.crypto_wallet.logo_url}
-                            alt={request.crypto_wallet.name}
+                            alt={request.crypto_wallet?.name || "Wallet"}
                             className="h-6 w-6 rounded-full"
                           />
                         )}
